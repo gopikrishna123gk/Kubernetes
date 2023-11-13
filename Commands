@@ -1,0 +1,285 @@
+Listing Resources :-
+
+   To list one (or) more pods, replication controllers, services, (or) daemon sets, use the kubectl get command.
+
+*) Generate a plain-text list of all namespaces
+      $ kubectl get namespaces
+*) Show a plain-text list of all pods
+      $ kubectl get pods
+*) Generate a detailed plain-text list of all pods, containing information such as node name
+      $ kubectl get pods -o wide
+*) Display a list of all pods running on a particular node server
+      $ kubectl get pods --field-selector=spec.nodeName=[server-name]
+  ex:-$ kubectl get pods -l gk=prod
+*) List a specific replication controller in plain-text
+      $ kubectl get replicationcontroller [replication-controller-name]
+  ex:-$ kubectl get replicationcontroller -l prod
+*) Generate a plain-text list of all replication controllers and services
+      $ kubectl get replicationcontroller,services
+  ex:-$ kubectl get replicationcontroller,services -l app=prod
+*) Show a plain-text list of all daemon sets
+      $ kubectl get daemonset
+*) List a particular deployment
+      $ kubectl get deployment my-dep
+*) List Services Sorted by Name
+      $ kubectl get services --sort-by=.metadata.name
+  ex:-$ kubectl get service --sort-by=.metadata.pod
+*) List PersistentVolumes sorted by capacity
+      $ kubectl get pv --sort-by=.spec.capacity.storage
+  ex:-$ kubectl get pv -o json | jq -r 'sort_by(.spec.capacity.storage) | .[]'
+*)  Show labels for all pods (or) any other Kubernetes object that supports labelling
+      $ kubectl get pods --show-labels
+*) List Events sorted by timestamp
+      $ kubectl get events --sort-by=.metadata.creationTimestamp
+*)  List all warning events
+      $ kubectl events --types=Warning
+
+
+Creating a Resource:-
+
+ *) For example, to create a new namespace, type
+     $ kubectl create namespace [namespace-name]
+ ex:-$ kubectl create namespace prod
+ *) Create a resource from a JSON (or) YAML file
+     $ kubectl create -f [filename]
+ ex:-$ kubectl create -f gk 
+
+Applying and Updating a Resource:-
+
+
+ *) Create a new service with the definition contained in a [service-name].yaml file:
+       $ kubectl apply -f [service-name].yaml
+   ex:-$ kubectl apply -f gk.yaml
+ *) Create a new replication controller with the definition contained in a [controller-name].yaml file:
+       $ kubectl apply -f [controller-name].yaml
+   ex:-$ kubectl apply -f gk.yaml
+ *) Create the objects defined in any .yaml, .yml, (or) .json file in a directory
+       $ kubectl apply -f [directory-name]
+   ex:-$ kubectl apply -f prod
+  *) You can update a resource by configuring it in a text editor, using the kubectl edit command. This command is
+     a combination of kubectl get and kubectl apply.
+  *) For example, to edit a service, type
+       $ kubectl edit svc/[service-name]
+  ex:-$ kubectl edit svc/gkserv
+ *) This command opens the file in your default editor. To use a different editor, specify it in front of the command
+       $ KUBE_EDITOR=”[editor-name]” kubectl edit svc/[service-name]
+  ex:-$ KUBE_EDITOR=vi kubectl edit svs/gkserv
+
+
+Displaying the State of Resources:-
+
+ *) View details about a particular node
+     $ kubectl describe nodes [node-name]
+ ex:-$ kubectl describe nodes deploy
+ *) View details about a particular pod
+     $ kubectl describe pods [pod-name]
+ ex:-$ kubectl describe pods deploy
+ *) Display details about a pod whose name and type are listed in pod.json
+     $ kubectl describe -f pod.json
+ *) See details about all pods managed by a specific replication controller
+     $ kubectl describe pods [replication-controller-name]
+ ex:-$ kubectl describe pods gk-prod
+ *) Show details about all pods
+     $ kubectl describe pods
+
+Deleting Resources:-
+
+ *) Remove a pod using the name and type listed in pod.yaml
+      $ kubectl delete -f pod.yaml
+ *) Remove all pods and services with a specific label
+      $ kubectl delete pods,services -l [label-key]=[label-value]
+  ex:-$ kubectl delete pods,services -l yaml=2
+ *) Remove all pods (including uninitialized pods)
+      $ kubectl delete pods --all
+
+Executing a Command:-
+
+ *) Receive output from a command run on the first container in a pod
+      $ kubectl exec [pod-name] -- [command]
+  ex:-$kubectl exec -it gk -- ls /app-kube
+ *) Get output from a command run on a specific container in a pod
+      $ kubectl exec [pod-name] -c [container-name] -- [command]
+  ex:-$kubectl exec -it gk -c prod -- ls /webapp/prod/app
+ *) Run /bin/bash from a specific pod. The received output comes from the first container
+      $ kubectl exec -ti [pod-name] -- /bin/bash
+  ex:-$ kubectl exec -ti gk --/bin/bash
+
+Modifying kubeconfig Files:-
+
+  *) Display the current context
+      $ kubectl config current-context
+  *) Set a cluster entry in kubeconfig
+      $ kubectl config set-cluster [cluster-name] --server=[server-name]
+  ex:-$ kubectl config set-cluster gk --server=dev
+  *) Unset an entry in kubeconfig:
+      $ kubectl config unset [property-name]
+  ex:-$ kubectl config unset vol
+
+Printing Container Logs:-
+
+ *) Print logs
+      $ kubectl logs [pod-name]
+  ex:-$ kubectl logs gk
+ *) To stream logs from a pod, use
+      $ kubectl logs -f [pod-name]
+  ex:-$ kubectl logs -f gk
+
+Short Names for Resource Types:-
+
+ *) Consider the command mentioned above:
+     $ kubectl create namespace [namespace-name]
+ ex:-$ kubectl create namespace kube
+*) You can also run this command as
+     $ kubectl create ns [namespace-name]
+ ex:-$ kubectl create ns kube
+
+Patching resources:-
+
+*) Partially update a node
+    $ kubectl patch node k8s-node-1 -p '{"spec":{"unschedulable":true}}'
+*) Update a container's image; spec.containers[*].name is required because it's a merge key
+    $ kubectl patch pod valid-pod -p '{"spec":{"containers":[{"name":"kubernetes-serve-hostname",
+     "image":"new image"}]}}' 
+ex:-$ kubectl patch pod valid-pod -p '{"spec":{"containers":[{"name":"kubernetes-serve-gk",
+     "image":"nginx"}]}}'
+*) Update a container's image using a json patch with positional arrays
+     $ kubectl patch pod valid-pod --type='json' -p='[{"op": "replace", "path": "/spec/containers/0/image",
+      "value":"new image"}]'
+ ex:-$ kubectl patch pod valid-pod --type='json' -p='[{"op":"replace", "path": "/spec/containers/0/"image",
+      "value":"redis"}]'
+*) Disable a deployment livenessProbe using a json patch with positional arrays
+     $ kubectl patch deployment valid-deployment  --type json   -p='[{"op": "remove", "path":
+     "/spec/template/spec/containers/0/livenessProbe"}]'
+*)  Add a new element to a positional array
+     $ kubectl patch sa default --type='json' -p='[{"op": "add", "path": "/secrets/1", "value": {"name": "whatever" } }]'
+*) Update a deployment's replica count by patching its scale subresource
+     $ kubectl patch deployment nginx-deployment --subresource='scale' --type='merg
+
+Copying files and directories to and from containers:-
+
+*) Copy /tmp/foo_dir local directory to /tmp/bar_dir in a remote pod in the current namespace
+      $ kubectl cp /tmp/foo_dir my-pod:/tmp/bar_dir
+  ex:-$ kubectl cp /tmp/prod_dir nginx:/tmp/bar_dir-n <prod> -c <redis>
+*) Copy /tmp/foo local file to /tmp/bar in a remote pod in a specific container
+      $ kubectl cp /tmp/foo my-pod:/tmp/bar -c my-container 
+  ex:-$ kubectl cp /tmp/prod nginx:/tmp/bar -c redis
+*) Copy /tmp/foo local file to /tmp/bar in a remote pod in namespace my-namespace
+      $ kubectl cp /tmp/foo my-namespace/my-pod:/tmp/bar 
+  ex:-$ kubectl cp /tmp/prod gk/nginx:/tmp/bar
+*) Copy /tmp/foo from a remote pod to /tmp/bar locally
+      $ kubectl cp my-namespace/my-pod:/tmp/foo /tmp/bar 
+  ex:-$ kubectl cp gk/nginx:/tmp/foo /tmp/bar
+
+Interacting with Deployments and Services:-
+
+*) dump Pod logs for a Deployment (single-container case)
+     $ kubectl logs deploy/my-deployment  
+ ex:-$ kubectl logs deploy/prod
+*) dump Pod logs for a Deployment (multi-container case)
+     $ kubectl logs deploy/my-deployment -c my-container  
+ ex:-$ kubectl logs deploy/prod - c nginx
+*) listen on local port 5000 and forward to port 5000 on Service backend
+     $ kubectl port-forward svc/my-service 5000  
+ ex:-$ kubectl port-forward svc/prod 5000
+*) listen on local port 5000 and forward to Service target port with name <my-service-port>
+     $ kubectl port-forward svc/my-service 5000:my-service-port 
+ ex:-$ kubectl port-forword svc/prod 5000:pre-prod 8080
+*) listen on local port 5000 and forward to port 6000 on a Pod created by <my-deployment>
+     $ kubectl port-forward deploy/my-deployment 5000:6000 
+ ex:-$ kubectl port-forward deploy/prod 5000:6000 
+*) run command in first Pod and first container in Deployment (single- or multi-container cases)
+     $ kubectl exec deploy/my-deployment -- ls
+ ex:-$ kubectl exec deploy/prod --ls
+
+Interacting with Nodes and cluster:-
+
+*) Mark my-node as unschedulable
+     $ kubectl cordon my-node 
+ ex:-$ kubectl cordon nginx
+ *) Drain my-node in preparation for maintenance
+     $ kubectl drain my-node 
+ ex:-$ kubectl drain nginx
+ *) Mark my-node as schedulable
+     $ kubectl uncordon my-node  
+ ex:-$ kubectl uncordon nginx
+ *) Show metrics for a given node
+     $ kubectl top node my-node   
+ ex:-$ kubectl top node nginx
+ *) Display addresses of the master and services
+     $ kubectl cluster-info 
+ *) Dump current cluster state to stdout
+     $ kubectl cluster-info dump  
+ *) Dump current cluster state to /path/to/cluster-state
+     $ kubectl cluster-info dump --output-directory=/path/to/cluster-state 
+ ex:-$ kubectl cluster-info dump --output-directory=/webapps/lib/nginx
+*) View existing taints on which exist on current nodes.
+     $ kubectl get nodes -o='custom-columns=NodeName:.metadata.name,TaintKey:.spec.taints[*].key,TaintValue:
+      .spec.taints[*].value,TaintEffect:.spec.taints[*].effect'
+*) If a taint with that key and effect already exists, its value is replaced as specified.
+     $ kubectl taint nodes foo dedicated=special-user:NoSchedule
+ ex:-$ kubectl taint nodes prod dedicated=special-gk:noschedule
+*) dump pod logs (stdout) for a previous instantiation of a container
+     $ kubectl logs my-pod --previous 
+ ex:-$ kubectl logs nginx --previous
+
+Resource types:-
+  
+    $ kubectl api-resources
+*) All namespaced resources
+    $ kubectl api-resources --namespaced=true  
+*) All non-namespaced resources
+    $ kubectl api-resources --namespaced=false 
+*) All resources with simple output (only the resource name)
+    $ kubectl api-resources -o name  
+*) All resources with expanded (aka "wide") output
+    $ kubectl api-resources -o wide 
+*) All resources that support the "list" and "get" request verbs
+    $ kubectl api-resources --verbs=list,get 
+*) All resources in the "extensions" API group
+    $ kubectl api-resources --api-group=extensions 
+
+Scaling resources:-
+
+*)  Scale a replicaset named 'foo' to 3
+     $ kubectl scale --replicas=3 rs/foo
+ ex:-$ kubectl scale --replicas=3 rs/nginx
+*) Scale a resource specified in "foo.yaml" to 3
+     $ kubectl scale --replicas=3 -f foo.yaml 
+ ex:-$ kubectl scale --replicas=3 -f gk.yml
+*) If the deployment named mysql's current size is 2, scale mysql to 3
+     $ kubectl scale --current-replicas=2 --replicas=3 deployment/mysql 
+*) Scale multiple replication controllers
+     $ kubectl scale --replicas=5 rc/foo rc/bar rc/baz 
+ ex:-$ kubectl scale --replicas=5 rc/gk rc/bar rc/baz
+
+DaemonSet :-
+
+*) List one (or) more daemonSets
+    $ kubectl get daemonset
+*) Edit and update the definition of one or more daemonSet:
+    $ kubectl edit daemonset <daemonset_name>
+ex:-$ kubectl edit daemonset docker
+*) Delete a daemonSet
+    $ kubectl delete daemonset <daemonset_name>
+ex:-$ kubectl delete daemonset docker
+*) Create a new daemonSet
+    $ kubectl create daemonset <daemonset_name>
+ex:-$ kubectl create daemonset docker
+*) Manage the rollout of a daemonSet
+    $ kubectl rollout daemonset
+*) Display the detailed state of daemonSets within a namespace
+    $ kubectl describe ds <daemonset_name> -n <namespace_name>
+ex:-$ kubectl describe ds docker -n gk
+
+StatefulSet:-
+
+*) List a StatefulSet:
+    $ kubectl get statefulset
+*) Delete StatefulSet only (not pods):
+    $ kubectl delete statefulset/[stateful_set_name] --cascade=false
+ex:-$ kubectl delete statefulset/[stateful_gk] --cascade=false
+
+
+
+
+
