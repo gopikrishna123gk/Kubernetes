@@ -1,0 +1,257 @@
+CrashLoopBackOff:-
+
+  *)This issue indicates a pod cannot be scheduled on a node. This could happen because the node does not have sufficient resources
+    to run the pod, (or) because the pod did not succeed in mounting the requested volumes.
+  *) to identify the issue
+       $ kubectl get pods
+  *) Check the output to see if the pod status is CrashLoopBackOff
+       $ kubectl get pods
+       NAME       READY    STATUS             RESTARTS   AGE
+       mypod-1    0/1      CrashLoopBackOff   0          58s
+      Getting detailed information and resolving the issue
+  *)  Here are the common causes:-
+     1)Insufficient resources:—if there are insufficient resources on the node, you can manually evict pods from the node (or) scale up your 
+                               cluster to ensure more nodes are available for your pods.
+     2) Volume mounting:—if you see the issue is mounting a storage volume, check which volume the pod is trying to mount, ensure it is defined 
+                         correctly in the pod manifest, and see that a storage volume with those definitions is available.
+     3) Use of hostPort:—if you are binding pods to a hostPort, you may only be able to schedule one pod per node. In most cases you can avoid
+                         using hostPort and use a Service object to enable communication with your pod.
+
+Kubernetes Node Not Ready:-
+
+  *) When a worker node shuts down (or) crashes, all stateful pods that reside on it become unavailable, and the node status appears as NotReady.
+  *) If a node has a NotReady status for over five minutes (by default), Kubernetes changes the status of pods scheduled on it to Unknown, and
+     attempts to schedule it on another node, with status ContainerCreating.
+  *)  to identify the issue
+        $ kubectl get nodes.
+  *) Check the output to see is the node status is NotReady
+        NAME        STATUS      AGE    VERSION
+        mynode-1    NotReady    1h     v1.2.0
+  *) To check if pods scheduled on your node are being moved to other nodes, run the command get pods.
+  *) Check the output to see if a pod appears twice on two different nodes, as follows
+        NAME       READY    STATUS               RESTARTS      AGE    IP        NODE
+        mypod-1    1/1      Unknown              0             10m    [IP]      mynode-1
+        mypod-1    0/1      ContainerCreating    0             15s    [none]    mynode-2
+  *) to Resolve this issue
+     1) If the failed node is able to recover (or) is rebooted by the user, the issue will resolve itself. Once the failed node recovers and joins the
+        cluster, the following process takes place
+     2) The pod with Unknown status is deleted, and volumes are detached from the failed node.
+     3) The pod is rescheduled on the new node, it's status changes from Unknown to ContainerCreating and required volumes are attached.
+     4) Kubernetes uses a "5-minute" timeout (by default), after which the pod will run on the node, and its status changes from ContainerCreating 
+        to Running.
+     5) If you have no time to wait, (or) the node does not recover, you’ll need to help Kubernetes reschedule the stateful pods on another, working node.
+        There are 2 ways to achieve this
+          1) Remove failed node from the cluster—using the command $ kubectl delete node [name]
+                 ex:- $ kubect delete node gk
+          2) Delete stateful pods with status unknown—using the command $ kubectl delete pods [pod_name] --grace-period=0 --force -n [namespace]
+                 ex:- $ kubectl delete pods gk --grace-period=0 --force -n prod
+
+Pod Stays Pending:-
+
+it means that the pod is not able to be scheduled onto a node
+
+ 1) Check Node Availability:-
+
+    Ensure that your nodes are in the Ready state.
+      $ kubectl get nodes
+
+  2) Check Resource Constraints:-
+
+      Inspect the resource requests and limits in your pod's YAML file. Ensure they are reasonable and can be satisfied by the nodes.
+               resources:
+                   requests:
+                       memory: "64Mi"
+                       cpu: "250m"
+                   limits:
+                        memory: "128Mi"
+                        cpu: "500m"
+
+ 3) Check Node Resources:-
+
+    Confirm that the node has enough resources to meet the pod's requirements.
+          $ kubectl describe node <node-name>
+      ex:-$ kubectl describe node gk
+
+ 4) Check Pod Events:-
+
+    View events associated with the pod to identify any issues.
+          $ kubectl describe pod <pod-name>
+      ex:-$ kubectl describe pod gk
+          $ kubectl top pods
+
+ 5) Check Network Policies:-
+
+    Ensure that there are no network policies preventing the pod from being scheduled.
+         $ kubectl get networkpolicies
+
+ 6) Check Persistent Volume (PV) and Persistent Volume Claim (PVC):-
+
+     If your pod requires persistent storage, ensure that the PVC is bound to a PV.
+         $ kubectl get pv
+         $ kubectl get pvc
+
+ 7) Check for taints and tolerations:-
+
+    Taints on nodes or tolerations in the pod specification may prevent scheduling.
+         $ kubectl describe node <node-name> | grep Taints
+     ex:-$ kubectl describe node gk | grep Taints
+         $ kubectl get pods <pod-name> -o yaml | grep tolerations
+     ex:-$ kubectl get pods gk -o yaml | grep tolerations
+
+ 8) Check Node Affinity:-
+
+    Verify if node affinity rules in the pod specification are causing scheduling issues.
+       affinity:
+         nodeAffinity:
+           requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+               - matchExpressions:
+                 - key: <node-label-key>
+                   operator: In
+                   values:
+                     - <node-label-value>
+
+ 9) Check for Resource Quotas and Limits:-
+
+     Verify if resource quotas are applied and if they might be preventing pod scheduling.
+         $ kubectl get resourcequotas
+
+ 10) Check Cluster Events:-
+
+    Inspect the cluster events for any issues that might be affecting pod scheduling.
+        $ kubectl get events --sort-by=.metadata.creationTimestamp
+
+ 11) Check Pod Configuration:-
+
+     Ensure there are no syntax errors or misconfigurations in your pod's YAML file.
+        $ kubectl apply -f <pod-definition-file.yaml> --dry-run=client
+
+ 12) Check for Image Pull Issues:-
+
+     Verify that the container image specified in the pod definition exists and can be pulled.
+          containers:
+          - name: my-container
+            image: my-image:tag
+     ex:- - name: nginx-container
+            image: nginx
+
+Pod Stays Waiting:-
+
+*) If a pod’s status is Waiting, this means it is scheduled on a node, but unable to run. Look at the describe pod output, in
+   the ‘Events’ section, and try to identify reasons the pod is not able to run.
+*) Most often, this will be due to an error when fetching the image. If so, check for the following
+    1) Image name:— ensure the image name in the pod manifest is correct
+    2) Image available:— ensure the image is really available in the repository
+    3) Test manually:— run a docker pull command on the local machine, ensuring you have the appropriate permissions, to see if you
+                       can retrieve the image.
+
+Pod Is Running but Misbehaving:-
+
+  it means that the containers within the pod have started successfully, but there are issues with the application (or) its behavior.
+
+*) Check Pod Logs:-
+
+   View the logs of the misbehaving container to identify any error messages (or) issues.
+        $ kubectl logs <pod-name>
+    ex:-$ kubectl logs gk
+
+ *) Inspect Container State:-
+
+    Use kubectl exec to run commands inside the container and inspect its state.
+        $ kubectl exec -it <pod-name> -- /bin/bash
+    ex:-$ kubectl exce -it gk --/bin/bash
+
+ *) Check Resource Usage:-
+
+    Verify resource usage (CPU, memory) of the misbehaving pod and its containers.
+        $ kubectl top pods
+
+ *) Review Application Configuration:-
+
+    Ensure that the application's configuration is correct and matches the expected behavior.
+         containers:
+          - name: my-container
+              image: my-image:tag
+                env:
+                 - name: ENV_VARIABLE
+                    value: "value"
+
+ *) Check Dependencies:-
+
+     Verify if the misbehaving application depends on external services, and ensure they are accessible.
+            containers:
+            - name: my-container
+               image: my-image:tag
+                 ports:
+               - containerPort: 80
+
+ * Monitor Application Metrics:-
+
+      If the application exposes metrics, use monitoring tools to check for abnormal behavior.
+        containers:
+         - name: my-container
+            image: my-image:tag
+            ports:
+              - containerPort: 8080
+
+ *) Inspect Environment Variables:-
+
+     Double-check environment variables passed to the container.
+       containers:
+         - name: my-container
+             image: my-image:tag
+               env:
+                 - name: DATABASE_URL
+                   value: "mysql://user:password@hostname:port/database"
+
+ *) Check for Ongoing Container Restarts:-
+
+      If the pod is experiencing continuous restarts, investigate the reason for the restarts.
+          $ kubectl describe pod <pod-name>
+      ex:-$ kubectl describe pod gk
+
+ *) Verify Network Policies:-
+
+    Check if network policies are affecting communication within the pod or with external services.
+         $ kubectl get networkpolicies
+
+ *) Check for Resource Quotas and Limits:-
+
+    Ensure that the pod is not hitting resource quotas (or) limits.
+         $ kubectl get resourcequotas
+
+ *) Examine Application Logs:-
+
+    If the application logs are separate from container logs, review them for additional insights.
+        $ kubectl exec -it <pod-name> -- cat /path/to/application/logs
+    ex:-$ kubectl exec -it gk -- cat /webapps/prod/nginx/logs
+
+ *) Inspect Cluster Events:-
+
+    Look for any cluster events that might be affecting the pod.
+       $ kubectl get events --sort-by=.metadata.creationTimestamp
+
+ *) Check Pod Security Context:-
+
+    Ensure that the security context settings in the pod specification are appropriate.
+            securityContext:
+               runAsUser: 1000
+
+ *) Review Pod Labels and Annotations:-
+
+     Check if the pod has the correct labels and annotations.
+         metadata:
+            labels:
+              app: my-app
+             annotations:
+                description: "My Application"
+
+ *) Check for Third-Party Dependencies:-
+
+     If the application relies on external services or dependencies, ensure they are functioning correctly.
+          containers:
+           - name: my-container
+             image: my-image:tag
+             ports:
+               - containerPort: 8080
+
