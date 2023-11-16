@@ -255,3 +255,196 @@ Pod Is Running but Misbehaving:-
              ports:
                - containerPort: 8080
 
+API Server VM Shuts Down (or) Crashes:-
+
+  1) Check Kubernetes API Server Logs:-
+
+    *)  Use the $ kubectl logs command to access the logs of the API server pod in the kube-system namespace.
+        $ kubectl logs -n kube-system <api-server-pod-name> -c kube-apiserver
+    ex:-$ kubectl logs -n kube-system dev -c nginx
+    *)  find any error messages (or) warnings that indicates the cause of the shutdown (or) crash.
+
+  2) Check System Logs:-
+
+   *) Review the system logs related to the Kubernetes API server to identify potential issues.
+        $ journalctl -u kube-apiserver
+   *) Examine the logs for any system-level errors or indications of problems.
+
+  3) Resource Usage:-
+
+   *) Ensure that the VM hosting the API server has sufficient resources.
+   *) Check resource usage using "top (or) htop".
+       $ kubectl top nodes
+   *) Look here for high CPU (or) memory usage that might be contributing to the shutdown.
+
+ 4) Check Configuration:-
+
+   *) Validate the Kubernetes API server configuration for any errors.
+       $ kube-apiserver --config=<path-to-config-file> --dry-run
+   ex:-$ kube-apiserver --config=dev/webapps/npm --dry-run
+   *) Correct any configuration issues that are identified.
+
+ 5) Network Issues:-
+
+   *) Verify the network configuration and check the connectivity issues.
+       $ kubectl describe pod <api-server-pod-name> -n kube-system
+   *) check for network-related errors (or) misconfigurations.
+
+ 6) Check Dependencies:-
+
+  *) Confirm that all necessary dependencies "e.x., etcd are installed and running.
+       $ systemctl status etcd
+  *) Address any dependency issues that are identified.
+
+ 7) Update Software if required :-
+
+   *) Ensure that your Kubernetes components are up-to-date.
+      $ kubeadm upgrade plan
+      $ kubeadm upgrade apply <desired-version>
+   *) Follow the Kubernetes official  documentation for upgrading your cluster.
+
+  8) Recreate the API Server Pod:-
+
+   *) Deleting the API server pod will trigger Kubernetes to recreate it.
+       $ kubectl delete pod <api-server-pod-name> -n kube-system
+   ex:-$ kubectl delete pod kube-system dev -c nginx
+   *) after delrting pod
+       $ kubectl get pods 
+
+  9) Check for Disk Space:-
+
+    *) Insufficient disk space can cause issues. Verify available disk space.
+         $ df -h
+    *) Free up space or expand the disk if needed.
+
+ 10) Monitor for Ongoing Issues:-
+
+  *) monitoring tools like Prometheus and Grafana to receive alerts.
+
+
+Control Plane Service Shuts Down (or) Crashes:-
+
+    control plane components of your Kubernetes cluster, such as the API server, controller manager, (or) etcd, 
+    shut down or crash, it can significantly impact the stability and functionality of your cluster.
+
+  1) Check Kubernetes Control Plane Component Logs:-
+
+    *) Use the kubectl logs command to check the logs of the specific control plane component that is experiencing 
+       issues. For ex, to check the logs of the API server
+          $ kubectl logs -n kube-system <api-server-pod-name> -c kube-apiserver
+      ex:-$ kubectl logs -n kube-system dev -c nginx
+    *) Examine the logs for if error messages, warnings, (or) relevant information.
+
+  2) Check System Logs:-
+
+   *) Review the system logs on the nodes hosting the control plane components.
+         $ journalctl -u kube-apiserver
+   *) Look for system-level errors that might be related to the control plane service crashes.
+
+  3) Resource Usage:-
+
+    *) Ensure that the nodes hosting the control plane components have sufficient resources such as CPU, memory, 
+       disk-space
+        $ kubectl top nodes
+
+  4) Check Configuration:-
+
+   *) Validate the configuration files of the control plane components for errors.
+       $ kube-apiserver --config=<path-to-api-server-config> --dry-run
+   ex:-$ kube-apiserver --config=dev/webapps/nginx --dry-run
+   *) Repeat this for other control plane components as needed.
+
+ 5) Network Issues:-
+
+   *) Verify the network configuration and check for any issues affecting communication between control
+      plane components.
+        $ kubectl describe pod <control-plane-pod-name> -n kube-system
+    ex:-$ kubectl describe pod dev -n kube-system
+    *) Look for network-related errors or misconfigurations.
+
+ 6) Check Dependencies:-
+
+   *) Confirm that dependencies like etcd are running and accessible.
+        $ systemctl status etcd
+   *) Resolve any issues related to dependencies.
+
+ 7) Update Software:-
+
+   *) Ensure that your Kubernetes components are up-to-date.
+      $ kubeadm upgrade plan
+      $ kubeadm upgrade apply <desired-version>
+
+ 8) Restart Control Plane Components:-
+
+   *) If the issue persists, try restarting the control plane components are affected.
+       $ systemctl restart kube-apiserver
+   *) just Monitor the component's status after the restart.
+
+ 9) Check for Disk Space if it is causing this issue:-
+
+   *) Verify there is sufficient free disk space on the nodes.
+      $ df -h
+   *)  try to Address any disk space issues.
+
+ 10) Monitor for Ongoing Issues:-
+
+   *) Set up monitoring tools like Prometheus and Grafana to receive alerts.
+
+API Server Storage Lost:-
+
+  1) Identify the Issue:-
+
+     Determine the extent of the storage loss. Is it a complete loss, (or) is some data still recoverable?
+
+  2) Restore from Backup:-
+
+    If you have backups, use them to restore the API server data.
+    ex:- Restoring etcd backup
+    $ ETCDCTL_API=3 etcdctl --endpoints=https://<etcd-endpoint> --cacert=<aws-s3-ca-cert> --cert=
+     <aws-s3-cert> --key=<dev/k8s/apiserver> snapshot restore <dev/aws/s3/apiserver>
+
+ 3) Recreate API Server Config:-
+
+    If the API server configuration is lost, recreate it using the necessary parameters.
+        $ kubeadm init --config=<path-to-config-file>
+    ex:-$ kubeadm init --config=dev/aws/s3/k8s
+    use the your original configuration file (or) use a new one if the old configuration is not recoverable.
+
+ 4) Recover etcd Data:-
+
+    If the etcd data is lost, consider recovering it if possible.
+    ex:- Recovering etcd data
+     $ ETCDCTL_API=3 etcdctl --endpoints=https://<etcd-endpoint> --cacert=<aws/s3-ca-cert> --cert=<aws/s3-cert> 
+       --key=<dev/k8s/apiserver/etcd> snapshot restore <dev/aws/s3/apiserver/etcd>
+
+ 5) Recreate API Server Pod:-
+
+   If other measures fail, consider deleting and recreating the API server pod.
+      $ kubectl delete pod -n kube-system <api-server-pod-name>
+  ex:-$ kubectl delete pod -n kube-system dev/aws/s3/apiserver
+      $ kubectl delete pod --all -n kube-system
+    Kubernetes will automatically recreate the API server pod with the restored or recreated configuration.
+
+ 6) Rejoin Nodes:-
+
+    If necessary, rejoin the worker nodes to the cluster.
+    ex:-: Getting join command from the control plane
+        $ kubeadm token create --print-join-command
+    ex:-$ sudo kubeadm join 192.168.1.100:6443 --token dev.1234567890abcdef --discovery-token-ca-cert-hash
+          sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+ 7) Monitor and Validate:-
+
+    Monitor the cluster to ensure that it returns to a stable state.
+       $ kubectl get nodes
+       $ kubectl get pods -n kube-system
+
+ 8) Prevent Future Data Loss:-
+
+    Regularly back up your etcd data and other critical components to prevent future data loss.
+
+ 9) Review and Investigate:-
+
+    *) Investigate the root cause of the storage loss to prevent it from happening again.
+    *) Check system logs, disk health, and any events leading up to the storage loss.
+
