@@ -170,7 +170,87 @@ Kubelet Malfunction:-
    *) Implement preventive measures, such as monitoring and regular maintenance.
    *) Keep your system and Kubernetes components up-to-date.
 
- 16) Review and Document:-
+Unplanned Network Partitioning Disconnecting Some Nodes from the Master:-
 
-   *) Conduct a post-incident review to understand the root cause.
-   *) Document the resolution steps for future reference.
+   it can lead to various issues such as node instability, pod scheduling problems, or degraded cluster
+   performance
+
+ 1) Identify the Network Partition:-
+
+   *) Determine which nodes are disconnected from the master.
+        $ kubectl get nodes
+   *) Identify nodes in a "NotReady" state.
+
+ 2) Check Network Connectivity:-
+
+    Verify network connectivity between the master and disconnected nodes.
+        $ ping <disconnected-node-ip>
+    ex:-$ ping 192.168.2.19
+
+ 3) Check Node Logs:-
+
+    Inspect the logs of the disconnected nodes for any network-related issues.
+        $ kubectl logs <disconnected-node-name>
+    ex:-$ kubectl logs worker-node1
+
+ 4) Check Master Node Logs:-
+
+    Inspect the logs on the master node for any network-related errors.
+        $ journalctl -u kubelet
+
+ 5) Check iptables Rules:-
+
+    Review iptables rules on both master and nodes to ensure proper network communication.
+        $ iptables -L -n
+
+ 6) Restart Affected Nodes:-
+
+     Restart nodes that are experiencing network issues.
+        $ sudo systemctl restart kubelet
+
+ 7) Check Kubelet Configuration:-
+
+    Verify the kubelet configuration for correctness.
+        $ cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+
+ 8) Rejoin Nodes:-
+
+    If needed, rejoin disconnected nodes to the cluster.
+        $ kubeadm token create --print-join-command
+    ex:-$ sudo kubeadm join 192.168.1.100:6443 --token abcdef.1234567890abcdef --discovery-token-ca-
+        cert-hash sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+ 9) Check etcd Health:-
+ 
+     Check the health of the etcd cluster (if used).
+       $ ETCDCTL_API=3 etcdctl --endpoints=https://<etcd-endpoint> --cacert=<path-to-ca-cert> --cert=
+         <path-to-cert> --key=<path-to-key> endpoint health
+   ex:-$ ETCDCTL_API=3 etcdctl --endpoints=https://<etcd-endpoint> --cacert=<aws/s3/ca/cert> --cert=
+         <aws/s3/cert> --key-<dev/aws/s3> endpoint health
+
+ 10) Restart Master Components:-
+
+    If the master node is affected, consider restarting the necessary control plane components.
+       $ sudo systemctl restart kube-apiserver
+
+ 11) Review Network Configuration:-
+
+    Verify the network configuration on both master and nodes.
+       $ cat /etc/cni/net.d/*
+
+ 12)  Recreate iptables Rules:-
+
+    If needed, recreate iptables rules on both master and nodes.
+       $ iptables-restore < /etc/sysconfig/iptables
+
+ 13) Monitor and Validate:-
+
+    Monitor the nodes and master for any improvements.
+      $ kubectl get nodes
+      $ kubectl get pods --all-namespaces
+
+ 14) Prevent Future Network Issues:-
+
+    *) Implement preventive measures such as network monitoring and redundant network paths.
+    *) Regularly review network configurations.
+ 
