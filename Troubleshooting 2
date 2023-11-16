@@ -1,0 +1,176 @@
+Worker Node Shuts Down:-
+
+ it can be due to various reasons such as hardware failures, network issues(or)resource exhaustion
+
+  1) Identify the Issue:-
+
+    Determine the reason for the worker node shutdown. Check system logs, hardware health, and network
+    connectivity.
+
+  2) Check Node Status:-
+
+    Use $ kubectl to check the status of the node.
+       $ kubectl get nodes
+    Look for the status of the node in question. If it's not ready, investigate further.
+
+ 3) Check Node Logs:-
+
+    View the node's logs to identify any issues.
+       $ kubectl describe node <node-name>
+   ex:-$ kubectl describe node nginx
+   Look for events or conditions that might explain the shutdown.
+
+ 4) Check System Logs on Node:-
+
+    Access system logs on the node to identify hardware (or) system-related issues.
+        $ journalctl -xe
+    Look for any critical errors (or) warnings.
+
+ 5) Check Resource Usage:-
+
+    Use commands like top or htop to check resource usage on the node.
+       $ ssh <node-worker1>
+       $ top
+    Identify resource-intensive processes (or) resource exhaustion.
+
+ 6) Check Disk Space:-
+
+    Verify if there is sufficient disk space on the node.
+       $ df -h
+    Free up space or expand the disk if needed.
+
+ 7) Restart Node:-
+
+   If the issue is not critical and you suspect it's a temporary problem, try restarting the node.
+      $ sudo shutdown -r now
+
+ 8) Investigate Hardware Issues:-
+
+    Check hardware health using system tools (or) vendor-specific utilities.
+      $ sudo lshw -short
+    Investigate any hardware failures reported.
+
+ 9) Check Network Connectivity:-
+
+   Ensure there are no network issues affecting the node.
+       $ ping <node-ip>
+   ex:-$ ping 192.168.2.13
+   Investigate and resolve any network-related problems.
+
+ 10) Recreate Node:-
+
+   If the node remains problematic, consider draining and deleting it, allowing Kubernetes to recreate it.
+       $ kubectl drain <node-name> --ignore-daemonsets
+   ex:-$ kubectl drain worker-node1 --ignore-daemonsets
+       $ kubectl delete node <node-name>
+   ex:-$ kubectl delete node worker-node1
+   New pods will be scheduled on other healthy nodes, and Kubernetes will recreate the problematic node.
+
+ 11) Monitor and Validate:-
+
+   After taking corrective actions, monitor the cluster to ensure it stabilizes.
+       $ kubectl get nodes
+       $ kubectl get pods --all-namespaces
+
+ 12) Prevent Future Issues:-
+
+   *) Implement preventive measures, such as monitoring, to catch issues early.
+   *) Regularly review node and system health.
+
+ 13) Review Incident:-
+
+    Conduct a post-incident review to understand the root cause and prevent recurrence.
+
+Kubelet Malfunction:-
+
+    A malfunctioning kubelet in your Kubernetes cluster can lead to various issues, such as pod scheduling problems,
+    container runtime errors, (or) node instability.
+
+  1) Identify the Issue:-
+
+    Check logs and events to understand the nature of the kubelet malfunction.
+         $ journalctl -u kubelet
+
+  2) Check Node Status:-
+
+    Use kubectl to check the status of the node associated with the malfunctioning kubelet.
+         $ kubectl get nodes
+
+ 3) Restart the Kubelet:-
+
+   Restarting the kubelet might resolve transient issues.
+        $ sudo systemctl restart kubelet
+
+ 4) Check Kubelet Logs:-
+
+   Inspect the kubelet logs for any errors or warning messages.
+       $ journalctl -u kubelet
+
+ 5) Check Kubelet Configuration:-
+
+   Verify the kubelet configuration for correctness.
+       $ cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+
+ 6) Recreate Kubelet Configuration:-
+
+    If the kubelet configuration is corrupted, recreate it.
+      $ kubeadm config print init-defaults > kubeadm.conf
+
+ 7) Update Kubelet:-
+
+   Ensure that your Kubernetes components are up-to-date.
+     $ kubeadm upgrade plan
+     $ kubeadm upgrade apply <desired-version>
+
+ 8) Check Network Configuration:-
+
+   Verify the network configuration on the node.
+     $ cat /etc/cni/net.d/*
+
+ 9) Check Container Runtime:-
+
+   Inspect the container runtime logs for any issues.
+     $ journalctl -u docker
+
+ 10) Restart Docker (or Containerd, CRI-O, etc.):-
+
+   Restart the container runtime if needed.
+      $ sudo systemctl restart docker
+
+ 11) Node Re-registration:-
+
+   Re-register the node to the cluster if necessary.
+      $ kubeadm token create --print-join-command
+  ex:-$ sudo kubeadm join 192.168.1.100:6443 --token abcdef.1234567890abcdef --discovery-token-ca-
+        cert-hash sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+ 12) Check Resource Usage:-
+
+    Use commands like top or htop to check resource usage.
+       $ ssh <node-name>
+       $ top
+   ex:-$ ssh worker-node1
+
+ 13) Reinstall Kubelet:-
+
+    If the issue persists, consider reinstalling the kubelet.
+     $ sudo kubeadm reset
+     $ sudo apt-get remove --purge kubelet kubeadm kubectl
+     $ sudo apt-get install kubelet kubeadm kubectl
+     $ sudo kubeadm init --ignore-preflight-errors=all
+
+ 14) Monitor and Validate:-
+
+    Monitor the kubelet logs and node status for any improvements.
+     $ journalctl -u kubelet
+     $ kubectl get nodes
+
+ 15) Prevent Future Issues:-
+
+   *) Implement preventive measures, such as monitoring and regular maintenance.
+   *) Keep your system and Kubernetes components up-to-date.
+
+ 16) Review and Document:-
+
+   *) Conduct a post-incident review to understand the root cause.
+   *) Document the resolution steps for future reference.
