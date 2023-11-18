@@ -253,4 +253,247 @@ Unplanned Network Partitioning Disconnecting Some Nodes from the Master:-
 
     *) Implement preventive measures such as network monitoring and redundant network paths.
     *) Regularly review network configurations.
- 
+
+Human Error by Cluster Operator:-
+
+  1) Identify the Nature of the Error:-
+
+     Understand the specific nature of the human error. This could range from misconfiguration, accidental
+     deletion of resources, (or) incorrect updates.
+
+  2) Check Cluster Status:-
+
+    Assess the current state of the cluster to understand the impact of the human error.
+       $ kubectl get nodes
+       $ kubectl get pods --all-namespaces
+
+  3) Review Logs:-
+
+     Inspect relevant logs to gather more details about the error.
+       $ kubectl logs <pod-name> -n <namespace>
+   ex:-$ kubectl logs gk -n prod
+
+  4) Identify and Confirm the Error:-
+
+    Pinpoint the specific mistake made and confirm its impact.
+    ex:- If a critical pod was deleted accidentally,
+       $ kubectl get pods -n <namespace>
+   ex:-$ kubectl get pods -n prod
+
+ 5) Recreate (or) Restore Resources:-
+
+    Recreate (or) restore the affected resources based on the nature of the error.
+    ex: If a deployment was accidentally deleted,
+       $ kubectl apply -f <path-to-deployment.yaml>
+   ex:-$ kubectl apply -f dev/aws/s3/webapps-deployment.yaml
+
+ 6) Check Configurations:-
+
+   If the error is related to misconfigurations, review and correct the configurations.
+   ex:- If a misconfigured Ingress caused issues,
+      $ kubectl edit ingress <ingress-name> -n <namespace>
+  ex:-$ kubectl edit ingress gk -n dev
+
+ 7) Implement Rollback:-
+
+   If an erroneous update was applied, consider rolling back to the previous state.
+   ex:- Rollback a deployment to the previous revision,
+      $ kubectl rollout undo deployment <deployment-name> -n <namespace>
+  ex:-$ kubectl rollout undo deployment roll_deployment -n dev
+
+  8) Check Dependencies:-
+
+     Confirm that dependencies are intact and operational.
+     ex:- If a ConfigMap used by a pod was deleted
+       $ kubectl get configmap -n <namespace>
+   ex:-$ kubectl get configmap -n dev
+
+ 9) Communicate and Document:-
+
+    If multiple people are involved, communicate the issue, and document the steps taken for resolution.
+
+Unavailable nodes:-
+
+ it can lead to service disruptions and impact the stability of your applications. 
+
+  1) Identify Unavailable Nodes:-
+
+   *) Use kubectl to check the status of nodes in your cluster.
+       $ kubectl get nodes
+   *) Identify nodes in a NotReady (or) Unknown state.
+
+ 2) Check Node Conditions:-
+
+  *) Investigate the node conditions to understand why nodes are not ready.
+       $ kubectl describe node <node-name>
+   ex:-$ kubectl describe node gk
+  *) Look for any conditions that might explain the unavailability.
+
+ 3) Check Node Logs:-
+
+  *) Examine the logs of the affected nodes for any error messages.
+       $ kubectl logs <node-name>
+   ex:-$ kubectl logs gk
+  *) Check for network-related issues, disk errors, (or) other problems.
+
+ 4) Restart kubelet Service:-
+
+  *) Restart the kubelet service on the affected node.
+       $ sudo systemctl restart kubelet
+  *) Monitor the node status after the restart.
+
+ 5) Check Resource Usage:-
+
+  *)  Use commands like top or htop to check resource usage on the nodes.
+       $ ssh <node-name>
+       $ top
+   ex:-$ ssh gk
+  *) Identify resource-intensive processes (or) resource exhaustion.
+
+ 6) Check Disk Space:-
+
+  *) Verify if there is sufficient disk space on the nodes.
+      $ df -h
+  *) Free up space or expand the disk if needed.
+
+ 7) Check Network Connectivity:-
+
+  *) Ensure there are no network issues affecting the nodes.
+      $ ping <node-ip>
+  ex:-$ ping 192.168.1.23
+  *) Investigate and resolve any network-related problems.
+
+ 8) Check for System Updates:-
+
+    Ensure that the node's operating system and software are up-to-date.
+      $ sudo apt update && sudo apt upgrade -y
+
+ 9) Node Re-registration:-
+
+    *) If necessary, rejoin the affected nodes to the cluster.
+       $ kubeadm token create --print-join-command
+   ex:-$ sudo kubeadm join 192.168.1.100:6443 --token abcdef.1234567890abcdef --discovery-token-ca-
+        cert-hash sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+    *) Execute the join command on the affected nodes.
+
+ 10) Check kube-proxy:-
+
+   *) Restart kube-proxy to ensure proper networking functionality.
+       $ kubectl rollout restart daemonset kube-proxy -n kube-system
+
+ 11) Check Cluster Networking:-
+
+    Validate the health of the cluster networking components.
+      $ kubectl get pods -n kube-system
+
+ 12) Recreate Nodes:-
+
+   *) If the issue persists, consider draining and deleting the problematic nodes, allowing Kubernetes to
+      re-create them.
+      $ kubectl drain <node-name> --ignore-daemonsets
+  ex:-$ kubectl drain gk --ignore-daemonsets
+      $ kubectl delete node <node-name>
+  ex:-$ kubectl delete node gk
+   *) New pods will be scheduled on other healthy nodes, and Kubernetes will recreate the problematic nodes.
+
+Noisy neighbors:-
+
+    it typically refers to situations where certain pods (or) containers on the same node are consuming an excessive
+    amount of resources, negatively impacting the performance of other pods on the same node.
+
+  1) Identify Resource-Intensive Pods:-
+
+     Use resource monitoring tools to identify pods (or) containers consuming excessive CPU (or) memory.
+         $ kubectl top pods --all-namespaces
+
+  2) Check Resource Requests and Limits:-
+
+     Review the resource requests and limits specified in the pod manifests.
+      resources:
+         requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+              memory: "128Mi"
+              cpu: "500m"
+
+  3) Modify Resource Specifications:-
+
+    Adjust resource requests and limits to better match the actual needs of the pods.
+       resources:
+         requests:
+           memory: "128Mi"
+           cpu: "250m"
+         limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+ 4) Isolate Pods on Nodes:-
+
+   Use node affinity rules to schedule pods on different nodes.
+    affinity:
+     nodeAffinity:
+       requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+           - matchExpressions:
+              - key: dedicated
+                 operator: In
+                  values:
+                - <node-label>
+
+ 5) Implement Pod Priority:-
+
+   Use pod priority and preemption to ensure higher-priority pods get preferential treatment.
+       priorityClassName: high-priority
+
+ 6) Implement QoS Classes:-
+
+   Utilize Quality of Service (QoS) classes to categorize pods based on resource requirements.
+           resources:
+             requests:
+                 memory: "64Mi"
+                 cpu: "250m"
+
+ 7) Use Pod Disruption Budgets:-
+
+     Implement PodDisruptionBudgets to control the number of pods that can be disrupted simultaneously.
+          apiVersion: policy/v1beta1
+          kind: PodDisruptionBudget
+          metadata:
+              name: gk-pdb
+             spec:
+                maxUnavailable: 1
+                selector:
+                matchLabels:
+                   app: depolyment
+
+ 8) Utilize Horizontal Pod Autoscaling:-
+
+    Automatically adjust the number of pod replicas based on resource usage.
+     apiVersion: autoscaling/v1
+     kind: HorizontalPodAutoscaler
+      metadata:
+        name: deployment-hpa
+     spec:
+        scaleTargetRef:
+             apiVersion: apps/v1
+             kind: Deployment
+             name: example-deployment
+          minReplicas: 1
+          maxReplicas: 10
+             targetCPUUtilizationPercentage: 50
+
+ 9) Use Resource Quotas:-
+
+    Implement Resource Quotas to limit the total amount of resources a namespace can consume.
+          apiVersion: v1
+          kind: ResourceQuota
+          metadata:
+              name: deployment-quota
+          spec:
+              hard:
+                 pods: "10"
+                  requests.cpu: "1"
+                  requests.memory: "1Gi"
+                  limits.cpu: "2"
+                  limits.memory: "2Gi"
