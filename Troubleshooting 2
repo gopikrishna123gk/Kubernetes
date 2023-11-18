@@ -497,3 +497,82 @@ Noisy neighbors:-
                   requests.memory: "1Gi"
                   limits.cpu: "2"
                   limits.memory: "2Gi"
+
+Non-responsive containers:-
+
+   1) Identify Non-Responsive Containers:-
+
+     Use kubectl to check the status of pods and identify non-responsive containers.
+          $ kubectl get pods
+
+   2) Check Container Logs:-
+
+    Inspect the logs of non-responsive containers to identify any error messages or issues.
+          $ kubectl logs <pod-name> -c <container-name>
+      ex:-$ kubectl logs gk -c nginx
+
+  3) Check Resource Usage:-
+
+    Use resource monitoring tools to check the resource usage of non-responsive containers.
+         $ kubectl top pods
+
+  4) Restart Containers:-
+
+    Restart non-responsive containers to attempt to restore functionality.
+        $ kubectl delete pod <pod-name>
+    ex:-$ kubectl delete pod gk
+
+  5) Check Container Health Probes:-
+
+   If you have defined liveness and readiness probes, review their configurations.
+     livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 3
+        periodSeconds: 3
+      readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 8080
+           initialDelaySeconds: 5
+           periodSeconds: 5
+
+  6) Update Probes (or) Container Configurations:-
+
+     Adjust liveness and readiness probe configurations if necessary.
+         livenessProbe:
+            httpGet:
+               path: /pod-healthz
+               port: 8080
+             initialDelaySeconds: 3
+             periodSeconds: 3
+
+  7) Check Network Connectivity:-
+
+     Verify that the non-responsive containers can communicate with necessary dependencies.
+          $ kubectl exec -it <pod-name> -- /bin/sh
+          $ ping <dependency-ip>
+      ex:-$ kubectl exec -it gk --/bin/bash
+          $ ping 192.168.1.23
+
+  8) Check for Container Image Issues:-
+
+    Verify that the container image used by the non-responsive container is correct and functional.
+            containers:
+               - name: my-nginx
+                 image: my-nginx:1.0
+
+  9) Rollback Container Image:-
+
+     If the issue started after updating the container image, consider rolling back to a previous version.
+          containers:
+            - name: my-container
+              image: my-nginx:1.0
+
+  10) Check Dependencies:-
+
+    Ensure that any external dependencies required by the container are available and responsive.
+         $ kubectl describe pod <pod-name>
+     ex:-$ kubectl describe pod nginx
+
