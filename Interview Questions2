@@ -1,0 +1,238 @@
+*) can we use many claims out of persitent volumes?
+
+     The mapping between persistentVolume and persistentVolumeClaim is always one to one. Even When you 
+     delete the claim, PersistentVolume still remains as we set persistentVolumeReclaimPolicy is set to
+     Retain and It will not be reused by any other claims. Below is the spec to create the Persistent Volume.
+                apiVersion: v1
+                kind: PersistentVolume
+                metadata:
+                name: mypv
+                spec:
+                capacity:
+                storage: 5Gi
+                volumeMode: Filesystem
+                accessModes:
+                 - ReadWriteOnce
+                persistentVolumeReclaimPolicy: Retain
+
+*) what kind of objects do you create, when dashboard like applications like queries the kubernetes API to get
+   some data?
+
+    You should be creating serviceAccount. A service account creates a token and tokens are stored inside a secret object.
+    By default Kubernetes automatically mounts the default service account. However, we can disable this property by
+    setting "automountServiceAccountToken: false" in our spec. Also, note each namespace will have a service account
+             apiVersion: v1
+             kind: ServiceAccount
+             metadata:
+             name: my-sa
+              automountServiceAccountToken: false
+
+*) what is the difference between pods and jobs?
+
+   A Pod always ensure that a container is running whereas the Job ensures that the pods run to its completion. Job is to
+   do a finite task.
+   Examples:
+    $  kubectl get pods
+     NAME           READY STATUS   RESTARTS AGE
+     mypod1         1/1 Running     0 59s
+    $  kubectl get job
+     NAME     DESIRED SUCCESSFUL   AGE
+     mypod1     1 0                19s
+
+*) how to deploy a feature application with zero time down time?
+
+   *) By default Deployment in Kubernetes using RollingUpdate as a strategy. Let's say we have an example that creates a
+      deployment 
+        $ kubectl run nginx --image=nginx # creates a deployment
+        $  kubectl get deploy
+         NAME    DESIRED  CURRENT UP-TO-DATE   AVAILABLE AGE
+         nginx    1.1.1       0                 7s
+  *) Now let’s assume we are going to update the nginx image
+       $ kubectl set image deployment nginx nginx=nginx:1.15 # updates the image 
+  *) Now when we check the replica sets
+       $ kubectl get replicasets # get replica sets
+         NAME               DESIRED CURRENT READY   AGE
+         nginx-65899c769f       0.0.0               7m
+         nginx-6c9655f5bb       1.1.1               13s
+  *) From the above, we can notice that one more replica set was added and then the other replica set was brought down
+       $ kubectl rollout status deployment nginx 
+       # check the status of a deployment rollout
+       $ kubectl rollout history deployment nginx
+       # check the revisions in a deployment
+       $  kubectl rollout history deployment nginx
+        deployment.extensions/nginx
+        REVISION  CHANGE-CAUSE
+          1         <none>
+          2         <none>
+
+*) how to monitor that pod is always runnning?
+
+     A liveness probe always checks if an application in a pod is running,  if this check fails the container gets
+     restarted. This is ideal in many scenarios where the container is running but somehow the application inside a
+     container crashes.
+               spec:
+               containers:
+              - name: liveness
+                image: k8s.gcr.io/liveness
+                 args:
+                - /server
+                 livenessProbe:
+                   httpGet:
+                      path: /healthz
+
+*) what are the types of multi-container pod pattenes?
+
+   sidecar:-
+     A pod spec which runs the main container and a helper container that does some utility work, but that is not
+     necessarily needed for the main container to work.
+  adapter:-
+    The adapter container will inspect the contents of the app's file, does some kind of restructuring and reformat 
+    it, and write the correctly formatted output to the location.
+  ambassador:-
+    It connects containers with the outside world. It is a proxy that allows other containers to connect to a port on 
+    localhost.
+
+*) what is differnence between replication controller and replication set?
+
+     The only difference between replication controllers and replica sets is the selectors. Replication controllers 
+     don't have selectors in their spec and also note that replication controllers are obsolete now in the latest 
+     version of Kubernetes.
+         apiVersion: apps/v1
+         kind: ReplicaSet
+         metadata:
+         name: frontend
+         labels:
+         app: guestbook
+         tier: frontend
+         spec:
+     replica set:-
+        replicas: 3
+           selector:
+              matchLabels:
+               tier: frontend
+             template:
+             metadata:
+             labels:
+             tier: frontend
+             spec:
+             containers:
+           - name: php-redis
+           image: gcr.io/google_samples/gb-frontend:v3
+
+*) how do you tie service to a pod (or) set of pods?
+
+    By declaring pods with the label(s) and by having a selector in the service which acts as a glue to stick the 
+    service to the pods.
+
+                kind: Service
+                   apiVersion: v1
+                   metadata:
+                   name: my-service
+                    spec:
+                       selector:
+                       app: MyApp-nginx
+                  ports:
+                     - protocol: TCP
+                  port: 80
+   Let's say if we have a set of Pods that carry a label "app=MyApp-nginx" the service will start routing to those pods.
+
+*) having a pod with 2 container,can i ping each other?
+
+    Containers on same pod act as if they are on the same machine. You can ping them using "localhost:port" itself. Every 
+    container in a pod shares the same IP. You can `ping localhost` inside a pod. Two containers in the same pod share an
+    IP and a network namespace and They are both localhost to each other. Discovery works like this: Component A's pods
+    -> Service Of Component B -> Component B's pods and Services have domain names "servicename.namespace.svc.cluster".local, 
+     the dns search path of pods by default includes that stuff, so a pod in namespace Foo can find a Service bar in same
+     namespace Foo by connecting to `bar`
+
+*) does the rooling update with same full set of replicas=1 makes sences?
+
+   *) No, because there is only 1 replica, any changes to state full set would result in an outage. So rolling update of a
+      StatefulSet would need to tear down one (or more) old pods before replacing them. In case 2 replicas, a rolling update
+      will create the second pod, which it will not be succeeded, the PD is locked by first (old) running pod, the rolling
+      update is not deleting the first pod in time to release the lock on the PDisk in time for the second pod to use it.
+      If there's only one that rolling update goes 1 -> 0 -> 1.f the app can run with multiple identical instances 
+      concurrently, use a Deployment and roll 1 -> 2 -> 1 instead.
+  *) This is a common yet one of the most important Kubernetes interview questions and answers for experienced professionals,
+     don't miss this one.
+
+*) differnent ways to provide API-security?
+
+    *)  Use the correct auth mode with API server authorization-mode=Node,RBAC Ensure all traffic is protected by TLS Use 
+        API authentication (smaller cluster may use certificates but larger multi-tenants may want an AD (or) some OIDC
+        authentication).
+    *) Make kubeless protect its API via authorization-mode=Webhook. Make sure the kube-dashboard uses a restrictive RBAC
+       role policy Monitor RBAC failures Remove default ServiceAccount permissions Filter egress to Cloud API metadata APIs
+       Filter out all traffic coming into kube-system namespace except DNS.
+    *) A default deny policy on all inbound on all namespaces is good . You explicitly allow per deployment.Use a 
+       "podsecurity policy" to have container restrictions and protect the Node Keep kube at the latest version.
+
+*) what does kube-proxy do?
+
+    kube-proxy does 2 things
+      *) for every Service, open a random port on the node and proxy that port to the Service.
+      *) install and maintain iptables rules which capture accesses to a virtual ip:port and redirect those to the port
+         in (1)
+*) what runs inside worker node?
+
+    Container Runtime
+     *) Kubelet
+     *) kube-proxy
+        Kubernetes Worker node is a machine where workloads get deployed. The workloads are in the form of containerised
+        applications and because of that, every node in the cluster must run the container run time such as docker in order
+        to run those workloads. You can have multiple masters mapped to multiple worker nodes or a single master having a 
+        single worker node. Also, the worker nodes are not gossiping or doing leader election or anything that would lead 
+        to odd-quantities. The role of the container run time is to start and managed containers. The kubelet is responsible
+        for running the state of each node and it receives commands and works to do from the master. It also does the health
+        check of the nodes and make sure they are healthy. Kubelet is also responsible for metric collectins of pods as well.
+        The kube-proxy is a component that manages host subnetting and makes services available to other components.
+
+*) is there a way to make a pod to automatically come up when the host restarts?
+
+     Yes using replication controller but it may reschedule to another host if you have multiple nodes in the cluster.
+
+*) is there other way to update configmap for deployment without pod restarts?
+
+      *) well you need to have some way of triggering the reload. ether do a check every minute or have a reload endpoint 
+        for an api or project the configmap as a volume, could use inotify to be aware of the change. Depends on how the
+        configmap is consumed by the container. If env vars, then no. If a volumeMount, then the file is updated in the
+        container ready to be consumed by the service but it needs to reload the file
+     *) The container does not restart. if the configmap is mounted as a volume it is updated dynamically. if it is an 
+        environment variable it stays as the old value until the container is restarted.volume mount the configmap into the
+        pod, the projected file is updated periodically. NOT realtime. then have the app recognise if the config on disk has
+        changed and reload.
+
+*) do rolling updates declared with a deployment take effect if i manually delete pods of the replica set with kubectl
+   delete pods (or) with dashboard? will the minimum required a number of pods be maintained?
+
+    *) Yes, the scheduler will make sure (as long as you have the correct resources) that the number of desired pods are met.
+       If you delete a pod, it will recreate it. Also deleting a service won't delete the Replica set. if you remove Service
+       (or) deployment you want to remove all resources which Service created. Also having a single replica for a deployment 
+       is usually not recommended because you cannot scale out and are treating in a specific way
+    *) Any app should be `Ingress` -> `Service` -> `Deployment` -> (volume mount or 3rd-party cloud storage)
+    *) You can skip ingress and just have `LoadBalancer (service)` -> `Deployment` (or Pod but they don't auto restart,
+       deployments do)
+
+*) what is the difference between external ip and loadbalancer ip?
+
+      loadBalancerIP is not a core Kubernetes concept, you need to have a cloud provider or controller like metallb set up 
+      the loadbalancer IP. When MetalLB sees a Service of type=LoadBalancer with a ClusterIP created, MetalLB allocates an 
+      IP from its pool and assigns it as that Service's External LoadBalanced IP.the externalIP, on the other hand, is set
+      up by kubelet so that any traffic that is sent to any node with that externalIP as the final destination will get
+      routed.`ExternalIP` assumes you already have control over said IP and that you have correctly arranged for traffic to
+      that IP to eventually land at one or more of your cluster nodes and its is a tool for implementing your own 
+      load-balancing. Also you shouldn't use it on cloud platforms like GKE, you want to set `spec.loadBalancerIP` to the 
+      IP you preallocated. When you try to create the service using .`loadBalancerIP` instead of `externalIP`, it doesn't
+      create the ephemeral port and the external IP address goes to `<pending>` and never updates.
+
+*) a pod is running 2 containers, when 1 stops- another container is still running on this event, i want terminate this 
+  pod?
+
+     You need to add a liveness and readiness probe to query each container,  if the probe fails, the entire pod will be 
+     restarted .add liveness object that calls any api that returns 200 to you from another container and both liveness 
+     and readiness probes run in infinite loops for example, If X depended to Y So add liveness  in X that check the health 
+     of Y.Both readiness/liveness probes always have to run after the container has been started .kubelet component performs
+     the liveness/readiness checks and set initialDelaySeconds and it can be anything from a few seconds to a few minutes
+     depending on app start time
+
+
